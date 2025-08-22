@@ -64,6 +64,8 @@
     "cstdlib": "c",
     "limits": "c",
     "zf_common_headfile.h": "c",
-    "image_processing.h": "c"
+    "image_processing.h": "c",
+    "perspective.h": "c",
+    "key.h": "c"
   }
 }

@@ -1,21 +1,56 @@
 #include "image_processing.h"
-#include <math.h>   
-#include <float.h>  
 
+/**
+ * @brief 图像灰度数据，存储当前帧的图像。
+ * @var Image[y][x]
+ * y: 行坐标，范围0~MT9V03X_H-1
+ * x: 列坐标，范围0~MT9V03X_W-1
+ */
 uint8 Image[MT9V03X_H][MT9V03X_W];
+
+/**
+ * @brief 左种子点坐标，Seed_left[0]为x，Seed_left[1]为y
+ */
 uint8 Seed_left[2];
+
+/**
+ * @brief 右种子点坐标，Seed_right[0]为x，Seed_right[1]为y
+ */
 uint8 Seed_right[2];
+
+/**
+ * @brief 左原始种子点坐标，original_left[0]为x，original_left[1]为y
+ */
 uint8 original_left[2];
+
+/**
+ * @brief 右原始种子点坐标，original_right[0]为x，original_right[1]为y
+ */
 uint8 original_right[2];
 
+/**
+ * @brief 当前左右种子点的中点x坐标
+ */
 uint8 mid_position = 94;
 
+/**
+ * @brief 当前种子点状态，取值见Pts_state枚举
+ */
 uint8 Seed_State = 0;
-uint8 width_base = 0;
 
+/**
+ * @brief 左线自适应阈值累计值
+ */
 uint32 left_threshold = 0;
+
+/**
+ * @brief 右线自适应阈值累计值
+ */
 uint32 right_threshold = 0;
-uint8 low_threshold = 0;
+
+/**
+ * @brief 拷贝mt9v03x_image到Image
+ */
 void Image_Copy(void){
     for (uint16_t i = 0; i < MT9V03X_H; i++) {
         for (uint16_t j = 0; j < MT9V03X_W; j++) {
@@ -24,8 +59,20 @@ void Image_Copy(void){
     }
 }
 
+/**
+ * @brief 透视变换矩阵，3x3
+ * @var perspective_Mat[i][j]
+ * i: 行，j: 列
+ */
 float perspective_Mat[3][3];
 
+/**
+ * @brief 对输入点(x, y)进行透视变换，输出output[2]为变换后坐标
+ * @param y 输入点y坐标
+ * @param x 输入点x坐标
+ * @param output 输出点output[0]=x', output[1]=y'
+ * @retval 1: 成功，0: 失败
+ */
 uint8 CalculateTransform(uint8 y, uint8 x, uint8 output[2]) {
     if(y >= MT9V03X_H || x >= MT9V03X_W) return 0;
 
@@ -33,7 +80,7 @@ uint8 CalculateTransform(uint8 y, uint8 x, uint8 output[2]) {
     float fy = (float)y;
     float denominator = (perspective_Mat[2][0] * fx + perspective_Mat[2][1] * fy + perspective_Mat[2][2]);
 
-    if (fabsf(denominator) < FLT_EPSILON) {
+    if (fabsf(denominator) == 0) {
         return 0;
     }
 
@@ -52,6 +99,12 @@ uint8 CalculateTransform(uint8 y, uint8 x, uint8 output[2]) {
     return 0;
 }
 
+/**
+ * @brief 对输入点(x, y)进行逆透视变换，输出output[2]为变换后坐标
+ * @param y 输入点y坐标
+ * @param x 输入点x坐标
+ * @param output 输出点output[0]=x', output[1]=y'
+ */
 void CalculateTransform_inverse(uint8 y, uint8 x, uint8 output[2]) {
     float fx = (float)x;
     float fy = (float)y;
@@ -64,6 +117,10 @@ void CalculateTransform_inverse(uint8 y, uint8 x, uint8 output[2]) {
     output[1] = (uint8)roundf(MT9V03X_H - transformed_y);
 }
 
+/**
+ * @brief 初始化透视变换矩阵
+ * @param change_un_Mat 输入的3x3变换矩阵
+ */
 void ImagePerspective_Init(float change_un_Mat[3][3]) {
     for (int i = 0; i < 3; i++) {
          for (int j = 0; j < 3; j++) {
@@ -72,6 +129,10 @@ void ImagePerspective_Init(float change_un_Mat[3][3]) {
      }
 }
 
+/**
+ * @brief 对输入点进行逆透视变换，结果写回pts_in
+ * @param pts_in 输入输出点，pts_in[0]=x, pts_in[1]=y
+ */
 void ImagePerspective(uint8 pts_in[2]){
     uint8 x,y;
     x = pts_in[0];
@@ -79,12 +140,6 @@ void ImagePerspective(uint8 pts_in[2]){
     float denominator = (perspective_Mat[0][0] * perspective_Mat[1][1] - perspective_Mat[0][0] * perspective_Mat[2][1] * y -
                         perspective_Mat[0][1] * perspective_Mat[1][0] + perspective_Mat[0][1] * perspective_Mat[2][0] * y +
                         perspective_Mat[1][0] * perspective_Mat[2][1] * x - perspective_Mat[1][1] * perspective_Mat[2][0] * x);
-
-    if (fabsf(denominator) < FLT_EPSILON) {
-        pts_in[0] = 0;
-        pts_in[1] = 0;
-        return;
-    }
 
     float inv_transformed_x = (perspective_Mat[0][1] * perspective_Mat[1][2] - perspective_Mat[0][1] * perspective_Mat[2][2] * y -
                             perspective_Mat[0][2] * perspective_Mat[1][1] + perspective_Mat[0][2] * perspective_Mat[2][1] * y +
@@ -101,7 +156,14 @@ void ImagePerspective(uint8 pts_in[2]){
     pts_in[1] = (uint8)fmaxf(0.0f, fminf((float)(MT9V03X_H - 1), (float)rounded_y));
 }
 
-
+/**
+ * @brief 自适应阈值计算
+ * @param y 行坐标
+ * @param x 列坐标
+ * @param block 阈值计算窗口大小
+ * @param clip_value 阈值修正值
+ * @retval 阈值
+ */
 uint8 adaptiveThreshold(uint8 y,uint8 x,uint8 block,int8 clip_value)
 {
     int8 half_block = block / 2;
@@ -118,214 +180,106 @@ uint8 adaptiveThreshold(uint8 y,uint8 x,uint8 block,int8 clip_value)
     return (uint8)thres;
 }
 
-uint8 Region_Otsu(uint8 x_start, uint8 x_end, uint8 y_start, uint8 y_end) {    
-    if (x_start >= MT9V03X_W || x_end >= MT9V03X_W || y_start >= MT9V03X_H || y_end >= MT9V03X_H) {
-        return 0;
-    }
-    if (x_start > x_end) {
-        uint8 temp = x_start;
-        x_start = x_end;
-        x_end = temp;
-    }
-    if (y_start > y_end) {
-        uint8 temp = y_start;
-        y_start = y_end;
-        y_end = temp;
-    }
-
-    #define GrayScale 256
-    int HistGram[GrayScale] = {0};
-    
-    for (uint8 y = y_start; y <= y_end; y++) {
-        for (uint8 x = x_start; x <= x_end; x++) {
-            HistGram[Image[y][x]]++;
-        }
-    }
-    
-    uint8 MinValue = 0, MaxValue = 255;
-    for (MinValue = 0; MinValue < 256 && HistGram[MinValue] == 0; MinValue++);
-    for (MaxValue = 255; MaxValue > MinValue && HistGram[MaxValue] == 0; MaxValue--);
-    
-    if (MaxValue == MinValue) {
-        return MaxValue;
-    }
-    if (MinValue + 1 == MaxValue) {
-        return MinValue;
-    }
-    
-    uint32 Amount = 0;
-    for (uint16 y = MinValue; y <= MaxValue; y++) {
-        Amount += HistGram[y];
-    }
-    
-    uint32 PixelIntegral = 0;
-    for (uint16 y = MinValue; y <= MaxValue; y++) {
-        PixelIntegral += HistGram[y] * y;
-    }
-    
-    double SigmaB = -1;
-    uint8 Threshold = 0;
-    uint32 PixelBack = 0;
-    uint32 PixelIntegralBack = 0;
-    
-    for (uint16 y = MinValue; y < MaxValue; y++) {
-        PixelBack += HistGram[y];
-        uint32 PixelFore = Amount - PixelBack;
-        
-        if (PixelBack == 0) continue;
-        if (PixelFore == 0) break;
-        
-        PixelIntegralBack += HistGram[y] * y;
-        uint32 PixelIntegralFore = PixelIntegral - PixelIntegralBack;
-        
-        double OmegaBack = (double)PixelBack / Amount;
-        double OmegaFore = (double)PixelFore / Amount;
-        double MicroBack = (double)PixelIntegralBack / PixelBack;
-        double MicroFore = (double)PixelIntegralFore / PixelFore;
-        
-        double Sigma = OmegaBack * OmegaFore * (MicroBack - MicroFore) * (MicroBack - MicroFore);
-        
-        if (Sigma > SigmaB) {
-            SigmaB = Sigma;
-            Threshold = (uint8)y;
-        }
-    }
-
-    return Threshold;
-}
-
-
-uint8 otsu_threshold(uint8 column_x) {
-    if(column_x >= MT9V03X_W) {
-        return 0;
-    }
-    
-    return Region_Otsu(column_x, column_x, 0, MT9V03X_H - 1);
-}
-
+/**
+ * @brief 沿列向上寻找边缘点
+ * @param point 输入点point[0]=x, point[1]=y，输出找到的点写回point
+ * @param seed_kind 指定种子类型，left_pts/Right_pts/其它
+ */
 void seek_up(uint8 point[2], uint8 seed_kind)
 {
     uint8 column_x = point[0];
     uint8 start_y = point[1];
-    uint8 thres = 0;
 
-    if(column_x >= MT9V03X_W || start_y == 0 || start_y >= MT9V03X_H) {
+    if (column_x < 1 || column_x >= MT9V03X_W - 1 || start_y < 1 || start_y >= MT9V03X_H - 1)
+    {
         return;
     }
-    uint8 point1[2] = {column_x,start_y};
-    TransformSinglePoint(point,point);
-    point1[1] = point[1] - 60 > 0 ? point[1] - 60 : 0;
-    ImagePerspective(point);
-    uint8 otsu_x_start = (column_x > 4) ? (column_x - 4) : 0;
-    uint8 otsu_x_end = (column_x < MT9V03X_W - 5) ? (column_x + 4) : (MT9V03X_W - 1);
-    uint8 otsu_y_start = point1[1] - 20 > 0 ? point1[1] - 20 : 0;
-    uint8 otsu_y_end = MT9V03X_H - 1;
 
-    thres = Region_Otsu(otsu_x_start, otsu_x_end, otsu_y_start, otsu_y_end);
+    uint8 found_y = find_edge_canny_col(column_x, start_y, 1);
 
-    for(uint8 i = start_y; i > 0; i--)
+    if (found_y > 0)
     {
-        if(Image[i - 1][column_x] < thres)
+        if (seed_kind == left_pts)
         {
-            if(seed_kind == left_pts)
-            {
-                Seed_left[0] = column_x;
-                Seed_left[1] = i - 1;
-            }
-            else if(seed_kind == Right_pts)
-            {
-                Seed_right[0] = column_x;
-                Seed_right[1] = i - 1;
-            }
-            else
-            {
-                 point[0] = column_x;
-                 point[1] = i - 1;
-            }
-            break;
+            Seed_left[0] = column_x;
+            Seed_left[1] = found_y;
+        }
+        else if (seed_kind == Right_pts)
+        {
+            Seed_right[0] = column_x;
+            Seed_right[1] = found_y;
+        }
+        else
+        {
+            point[0] = column_x;
+            point[1] = found_y;
         }
     }
 }
 
-uint8 Seek_TOP(uint8 x)
-{
-    uint8 all_thres = 0;
-    if(left_threshold > 0 && right_threshold > 0) {
-        all_thres = (left_threshold + right_threshold) / 2;
-    }else if(left_threshold > 0) {
-        all_thres = left_threshold;
-    }else if(right_threshold > 0) {
-        all_thres = right_threshold;
-    }
-    for(uint8 i = Start_high - 1; i > 2; i--) {
-        uint8 thres = (all_thres * 6 + Image[i][x] + Image[i + 1][x] + Image[i - 1][x]) / 9;
-        if(Image[i - 1][x] < thres) {
-            return i;
-        }
-    }
-    return 0;
-}
-
-void Seek_Pts_Seed(uint8 High,uint8 mini_high)
+/**
+ * @brief 寻找左右种子点
+ * @param High 起始行
+ * @param mini_high 最小行
+ */
+void Seek_Pts_Seed(uint8 High, uint8 mini_high)
 {
     if(High >= MT9V03X_H || High < 1) {
         Seed_State = no_pts;
         return;
     }
-    Seed_left[0] = 0;
-    Seed_right[0] = 188;
-    Seed_left[1] = High;
-    Seed_right[1] = High;
+
     uint8 result = no_pts;
-    low_threshold = Region_Otsu(0, MT9V03X_W - 1, mini_high, High);
-    low_threshold = low_threshold > 21 ? low_threshold - 20 : 0;
-    for(uint8 i = mid_position; i > 2; i--) {
-        if(Image[High][i] < low_threshold) {
-            Seed_left[0] = i + 1;
-            result += left_pts;
-            for(uint8 j = i; j > 0; j--)Image[High][j] = Image[High][i];
-            break;
-        }
+    Seed_left[0] = 0;
+    Seed_left[1] = High;
+    Seed_right[0] = MT9V03X_W;
+    Seed_right[1] = High;
+    uint8 found_left_x = find_edge_canny_row(High, mid_position, 0);
+    if (found_left_x >= 3) {
+        Seed_left[0] = found_left_x;
+        result += left_pts;
     }
-    for(uint8 i = mid_position; i < MT9V03X_W - 2; i++) {
-        if(Image[High][i] < low_threshold) {
-            Seed_right[0] = i - 1;
-            result += Right_pts;
-            for(uint8 j = i; j < MT9V03X_W; j++)Image[High][j] = Image[High][i];
-            break;
-        }
-    } 
-    if(result == two_pts && width_base == 0)width_base = Seed_right[0] - Seed_left[0];
-    mid_position = (Seed_left[0] + Seed_right[0]) / 2;
-    if(result != two_pts) {
-        if(result == left_pts) {
-            Seed_right[0] = 183;
-            for(uint8 i = High - 1; i >= mini_high; i--) {
-                if(Image[i][Seed_right[0]] < low_threshold) {
-                    Seed_right[1] = i + 1;
+
+    uint8 found_right_x = find_edge_canny_row(High, mid_position, 1);
+    if (found_right_x <= MT9V03X_W - 3) {
+        Seed_right[0] = found_right_x;
+        result += Right_pts;
+    }
+
+    if (result != two_pts) {
+        if (result == left_pts) { 
+            for (uint8 i = High - 1; i >= mini_high; i--) {
+                found_right_x = find_edge_canny_row(i, mid_position, 1);
+                if (found_right_x <= MT9V03X_W - 3) {
+                    Seed_right[0] = found_right_x;
+                    Seed_right[1] = i;
                     result += Right_pts;
-                    for(uint8 j = i; j >= mini_high; j--)Image[j][Seed_right[0]] = Image[i][Seed_right[0]];
                     break;
                 }
             }
-        } else if(result == Right_pts) {
-            Seed_left[0] = 5;
-            for(uint8 i = High - 1; i >= mini_high; i--) {
-                if(Image[i][Seed_left[0]] < low_threshold) {
-                    Seed_left[1] = i + 1;
+        } else if (result == Right_pts) { 
+             for (uint8 i = High - 1; i >= mini_high; i--) {
+                found_left_x = find_edge_canny_row(i, mid_position, 0);
+                if (found_left_x >= 3) {
+                    Seed_left[0] = found_left_x;
+                    Seed_left[1] = i;
                     result += left_pts;
-                    for(uint8 j = i; j >= mini_high; j--)Image[j][Seed_left[0]] = Image[i][Seed_left[0]];
                     break;
                 }
             }
         }
     }
+
     Seed_State = result;
+    mid_position = (Seed_left[0] + Seed_right[0]) / 2;
     memcpy(original_left, Seed_left, sizeof(Seed_left));
     memcpy(original_right, Seed_right, sizeof(Seed_right));
 }
 
-
+/**
+ * @brief 前进方向向量
+ * dir_front[0]: 上，dir_front[1]: 右，dir_front[2]: 下，dir_front[3]: 左
+ */
 int dir_front[4][2]={
         {0,-1},
         {1,0},
@@ -333,6 +287,9 @@ int dir_front[4][2]={
         {-1,0}
 };
 
+/**
+ * @brief 左前方向向量
+ */
 int dir_frontleft[4][2]={
         {-1,-1},
         {1,-1},
@@ -340,6 +297,9 @@ int dir_frontleft[4][2]={
         {-1,1}
 };
 
+/**
+ * @brief 右前方向向量
+ */
 int dir_frontright[4][2]={
         {1,-1},
         {1,1},
@@ -347,9 +307,15 @@ int dir_frontright[4][2]={
         {-1,-1}
 };
 
+/**
+ * @brief 左手法自适应阈值寻线
+ * @param block_size 阈值窗口大小
+ * @param clip_value 阈值修正
+ * @param pts_arry 输出点数组
+ * @retval 实际采集到的点数
+ */
 uint8 findline_lefthand_adaptive(uint8 block_size,uint8 clip_value,uint8 pts_arry[][2])
 {
-    uint8 half = block_size / 2;
     uint8 step = 0, dir = 0, turn = 0;
     uint8 thres = 0,time = 0;
     left_threshold = 0;
@@ -405,9 +371,15 @@ uint8 findline_lefthand_adaptive(uint8 block_size,uint8 clip_value,uint8 pts_arr
     return step;
 }
 
+/**
+ * @brief 右手法自适应阈值寻线
+ * @param block_size 阈值窗口大小
+ * @param clip_value 阈值修正
+ * @param pts_arry 输出点数组
+ * @retval 实际采集到的点数
+ */
 uint8 findline_righthand_adaptive(uint8 block_size,uint8 clip_value,uint8 pts_arry[][2])
 {
-    uint8 half = block_size / 2;
     uint8 step = 0, dir = 0, turn = 0;
     uint8 thres = 0,time = 0;
     right_threshold = 0;
@@ -463,6 +435,14 @@ uint8 findline_righthand_adaptive(uint8 block_size,uint8 clip_value,uint8 pts_ar
     return step;
 }
 
+/**
+ * @brief 对一组点进行透视变换
+ * @param pts_in 输入点数组
+ * @param pts_out 输出点数组
+ * @param step 输入点数
+ * @param step_Max 最大输出点数
+ * @retval 实际输出点数
+ */
 uint8 PtsPerspective(uint8 pts_in[][2], uint8 pts_out[][2], uint8 step, uint8 step_Max) {
     uint8 new_step = 0;
     for(uint8 i = 0; i < step; i++) {
@@ -476,12 +456,28 @@ uint8 PtsPerspective(uint8 pts_in[][2], uint8 pts_out[][2], uint8 step, uint8 st
     return new_step;
 }
 
+/**
+ * @brief 单点透视变换
+ * @param pt_in 输入点pt_in[0]=x, pt_in[1]=y
+ * @param pt_out 输出点pt_out[0]=x', pt_out[1]=y'
+ * @retval 1: 成功，0: 失败
+ */
 uint8 TransformSinglePoint(uint8 pt_in[2], uint8 pt_out[2]) {
     return CalculateTransform(pt_in[1], pt_in[0], pt_out);
 }
 
-
+/**
+ * @brief 模糊处理后的点数组
+ */
 uint8 blur_pts_out[255][2];
+
+/**
+ * @brief 对点集进行模糊平滑处理
+ * @param step 点数
+ * @param kernel 卷积核大小
+ * @param pts_in 输入点数组
+ * @retval 处理后点数
+ */
 uint8 blur_points(uint8 step, uint8 kernel, uint8 pts_in[][2]){
     int8 half = kernel / 2;
     memset(blur_pts_out, 0, sizeof(blur_pts_out));
@@ -514,154 +510,14 @@ uint8 blur_points(uint8 step, uint8 kernel, uint8 pts_in[][2]){
     return Arry_Copy(blur_pts_out,pts_in,step);
 }
 
-#define MAX_RESAMPLE_POINTS 255
-
-uint8 resample_points(uint8 pts_in[][2], uint8 step1, uint8 step2, uint8 dist) {
-    uint8 resample_pts_out[MAX_RESAMPLE_POINTS][2] = {0};
-    float target_dist = (float)dist;
-    float accumulated_dist = 0.0f;
-    uint8 len = 0;
-
-    if (step1 < 2 || step2 == 0 || dist == 0) {
-        return 0;
-    }
-
-    if (len < step2 && len < MAX_RESAMPLE_POINTS) {
-        resample_pts_out[len][0] = pts_in[0][0];
-        resample_pts_out[len][1] = pts_in[0][1];
-        len++;
-    }
-
-    for (uint8 i = 0; i < step1 - 1 && len < step2; i++) {
-        float x0 = (float)pts_in[i][0];
-        float y0 = (float)pts_in[i][1];
-        float x1 = (float)pts_in[i + 1][0];
-        float y1 = (float)pts_in[i + 1][1];
-
-        float dx = x1 - x0;
-        float dy = y1 - y0;
-        float segment_len = SquareRootFloat(dx * dx + dy * dy);
-
-        if (segment_len < FLT_EPSILON) continue;
-
-        float nx = dx / segment_len;
-        float ny = dy / segment_len;
-
-        float dist_to_next_sample = target_dist - accumulated_dist;
-
-        while (dist_to_next_sample <= segment_len && len < step2) {
-            float sample_x = x0 + nx * dist_to_next_sample;
-            float sample_y = y0 + ny * dist_to_next_sample;
-
-            int rounded_x = (int)roundf(sample_x);
-            int rounded_y = (int)roundf(sample_y);
-
-            if (len < MAX_RESAMPLE_POINTS &&
-                rounded_x >= 0  && rounded_y >= 0 )
-            {
-                resample_pts_out[len][0] = (uint8)rounded_x;
-                resample_pts_out[len][1] = (uint8)rounded_y;
-                len++;
-            } else {
-                goto end_resampling;
-            }
-
-            accumulated_dist = 0.0f;
-            x0 = sample_x;
-            y0 = sample_y;
-            segment_len -= dist_to_next_sample;
-            dist_to_next_sample = target_dist;
-        }
-
-        accumulated_dist += segment_len;
-    }
-
-end_resampling:
-    for (uint8 i = 0; i < len; i++) {
-        pts_in[i][0] = resample_pts_out[i][0];
-        pts_in[i][1] = resample_pts_out[i][1];
-    }
-
-    for (uint8 i = len; i < step1; i++) {
-        pts_in[i][0] = 0;
-        pts_in[i][1] = 0;
-    }
-
-    return len;
-}
-
-void track_leftpoint(uint8 pts_in[][2], uint8 num, uint8 ID, uint8 pts_out[2], int8 approx_num, uint8 dist) {
-    uint8 i = 0;
-    float dx = pts_in[clip(ID + approx_num, 0, num - 1)][0] - pts_in[clip(ID - approx_num, 0, num - 1)][0];
-    float dy = pts_in[clip(ID + approx_num, 0, num - 1)][1] - pts_in[clip(ID - approx_num, 0, num - 1)][1];
-    float dn = SquareRootFloat(dx * dx + dy * dy);
-    if(dn == 0)
-    {
-        pts_out[0] = 0;
-        pts_out[1] = 0;
-        return;
-    }
-    dx /= dn;
-    dy /= dn;
-    pts_out[0] = pts_in[ID][0] - dy * dist;
-    pts_out[1] = pts_in[ID][1] + dx * dist;
-}
-
-
-void track_rightpoint(uint8 pts_in[][2], uint8 num, uint8 ID, uint8 pts_out[2], int8 approx_num, uint8 dist) {
-    uint8 i = 0;
-    float dx = pts_in[clip(ID + approx_num, 0, num - 1)][0] - pts_in[clip(ID - approx_num, 0, num - 1)][0];
-    float dy = pts_in[clip(ID + approx_num, 0, num - 1)][1] - pts_in[clip(ID - approx_num, 0, num - 1)][1];
-    float dn = SquareRootFloat(dx * dx + dy * dy);
-    if(dn == 0)
-    {
-        pts_out[0] = 0;
-        pts_out[1] = 0;
-        return;
-    }
-    dx /= dn;
-    dy /= dn;
-    pts_out[0] = pts_in[ID][0] + dy * dist;
-    pts_out[1] = pts_in[ID][1] - dx * dist;
-}
-
-uint8 track_leftline(uint8 pts_in[][2], uint8 num, uint8 pts_out[][2], int8 approx_num, uint8 dist) {
-    uint8 i = 0;
-    for (i = 0; i < num - 1; i++) {
-        if(pts_in[i][0] < 0 || pts_in[i][0] >= MT9V03X_W || pts_in[i][1] < 0 || pts_in[i][1] >= MT9V03X_H)break;
-        float dx = pts_in[clip(i + approx_num, 0, num - 1)][0] - pts_in[clip(i - approx_num, 0, num - 1)][0];
-        float dy = pts_in[clip(i + approx_num, 0, num - 1)][1] - pts_in[clip(i - approx_num, 0, num - 1)][1];
-        float dn = SquareRootFloat(dx * dx + dy * dy);
-        dx /= dn;
-        dy /= dn;
-        uint8 x = pts_in[i][0] - dy * dist;
-        uint8 y = pts_in[i][1] + dx * dist;
-        if(x == 0 && y == 0)break;
-        pts_out[i][0] = x;
-        pts_out[i][1] = y;
-    }
-    return i;
-}
-
-
-uint8 track_rightline(uint8 pts_in[][2], uint8 num, uint8 pts_out[][2], int8 approx_num, uint8 dist) {
-    uint8 i = 0;
-    for (i = 0; i < num - 1; i++) {
-        if(pts_in[i][0] < 0 || pts_in[i][0] >= MT9V03X_W || pts_in[i][1] < 0 || pts_in[i][1] >= MT9V03X_H)break;
-        float dx = pts_in[clip(i + approx_num, 0, num - 1)][0] - pts_in[clip(i - approx_num, 0, num - 1)][0];
-        float dy = pts_in[clip(i + approx_num, 0, num - 1)][1] - pts_in[clip(i - approx_num, 0, num - 1)][1];
-        float dn = SquareRootFloat(dx * dx + dy * dy);
-        dx /= dn;
-        dy /= dn;
-        uint8 x = pts_in[i][0] + dy * dist;
-        uint8 y = pts_in[i][1] - dx * dist;
-        if(x == 0 && y == 0)break;
-        pts_out[i][0] = x;
-        pts_out[i][1] = y;
-    }
-    return i;
-}
-
+/**
+ * @brief 计算点集某点的局部夹角
+ * @param pts_in 点集
+ * @param num 点数
+ * @param ID 当前点索引
+ * @param dist 前后距离
+ * @retval 夹角弧度
+ */
 float local_angle_points(uint8 pts_in[][2], uint8 num, uint8 ID,uint8 dist){
     float dx1 = pts_in[ID][0] - pts_in[clip(ID - dist, 0, num - 1)][0];
     float dy1 = pts_in[ID][1] - pts_in[clip(ID - dist, 0, num - 1)][1];
@@ -676,6 +532,13 @@ float local_angle_points(uint8 pts_in[][2], uint8 num, uint8 ID,uint8 dist){
     return atan2f(c1 * s2 - c2 * s1, c2 * c1 + s2 * s1);
 }
 
+/**
+ * @brief 非极大值抑制处理角度数组
+ * @param angle_in 输入角度数组
+ * @param num 数组长度
+ * @param angle_out 输出数组
+ * @param kernel 抑制窗口
+ */
 void nms_angle(float angle_in[], int num, float angle_out[], int kernel){
     int half = kernel / 2;
     for (int i = 0; i < num; i++) {
@@ -689,6 +552,13 @@ void nms_angle(float angle_in[], int num, float angle_out[], int kernel){
     }
 }
 
+/**
+ * @brief 计算三点曲率
+ * @param P0 第一个点
+ * @param P1 第二个点
+ * @param P2 第三个点
+ * @retval 曲率值
+ */
 float compute_curvature(uint8 P0[2], uint8 P1[2], uint8 P2[2]) {
     float cross =
         (float)(P1[0] - P0[0]) * (float)(P2[1] - P0[1]) -
@@ -719,6 +589,12 @@ float compute_curvature(uint8 P0[2], uint8 P1[2], uint8 P2[2]) {
     return (radius != 0) ? 1.0 / radius : 0.0;
 }
 
+/**
+ * @brief 获取点集的最小y值
+ * @param pts_in 点集
+ * @param num 点数
+ * @retval 最小y值
+ */
 uint8 Get_high(uint8 pts_in[][2],uint8 num)
 {
     uint8 high = Start_high;
@@ -729,146 +605,23 @@ uint8 Get_high(uint8 pts_in[][2],uint8 num)
     return high;
 }
 
-
+/**
+ * @brief 计算两点欧氏距离
+ * @param pt1 第一个点
+ * @param pt2 第二个点
+ * @retval 距离
+ */
 float Get_Distance(uint8 pt1[2], uint8 pt2[2]) {
-    int dx = (int)pt1[0] - pt2[0];
-    int dy = (int)pt1[1] - pt2[1];
+    float dx = (int)pt1[0] - pt2[0];
+    float dy = (int)pt1[1] - pt2[1];
     return SquareRootFloat(dx*dx + dy*dy);
 }
 
-
-uint8 addline(uint8 location1[2],uint8 location2[2],uint8 pts[][2],uint8 add_location,uint8 dist)
-{
-    float x0 = location1[0];
-    float y0 = location1[1];
-    float dx = location2[0] - x0;
-    float dy = location2[1] - y0;
-    float dn = SquareRootFloat(dx * dx + dy * dy);
-    dx /= dn;
-    dy /= dn;
-
-    int len = 0,remain = dist;
-    while (remain < dn && len < (MT9V03X_W - add_location)) {
-        x0 += dx * remain;
-        y0 += dy * remain;
-
-        if(x0 < 0 || y0 < 0) break;
-
-        pts[add_location + len][0] = (uint8)x0;
-        pts[add_location + len][1] = (uint8)y0;
-        len++;
-        dn -= remain;
-    }
-    return len;
-}
-
-
-
-uint8 quan_speed_float[11]={1,2,2,3,4,5,4,3,2,2,1};
-uint8 Index = 0;
-float Get_error(MidlineData *midline,int speed, float speed_decision)
-{
-    static float last_error = 0;
-    static int speed_temp[20] = {0};
-    speed_temp[0] = speed;
-    int sum_speed = speed;
-    for(uint8 i = 19; i > 0; i--) {
-        speed_temp[i] = speed_temp[i-1];
-        sum_speed += speed_temp[i];
-    }
-    int now_speed = sum_speed / 20;
-    uint8 target_dist = now_speed * speed_decision;
-    uint8 target_idx = midline->step - 1;
-
-    for(uint8 i = 0; i < midline->step; i++){
-        if(midline->dist[i] > target_dist){
-            target_idx = i;
-            break;
-        }
-    }
-    Index = target_idx;
-    int error = 0;
-    if (target_idx < midline->step) {
-        error = midline->pts[target_idx][0] - 94;
-    } else {
-        error = last_error;
-    }
-    last_error = error;
-    return (float)error;
-}
-
-uint8 add_three_point_bezier(uint8 location1[2], uint8 location2[2], uint8 location3[2],
-                             uint8 pts[][2], uint8 add_location, uint8 dist)
-{
-    if (add_location >= MT9V03X_W) {
-        return 0;
-    }
-
-    float dx1 = location2[0] - location1[0];
-    float dy1 = location2[1] - location1[1];
-    float len1 = SquareRootFloat(dx1 * dx1 + dy1 * dy1);
-
-    float dx2 = location3[0] - location2[0];
-    float dy2 = location3[1] - location2[1];
-    float len2 = SquareRootFloat(dx2 * dx2 + dy2 * dy2);
-
-    float curve_length = (len1 + len2) * 0.8f;
-
-    uint8 num_points = curve_length / dist + 1;
-    if (num_points > (MT9V03X_W - add_location)) {
-        num_points = MT9V03X_W - add_location;
-    }
-
-    float step = 1.0f / (num_points - 1);
-    float t = 0.0f;
-    uint8 len = 0;
-    float x, y, prev_x = 0, prev_y = 0;
-    float current_dist = 0;
-
-    pts[add_location + len][0] = location1[0];
-    pts[add_location + len][1] = location1[1];
-    prev_x = location1[0];
-    prev_y = location1[1];
-    len++;
-
-    t = step;
-    while (t <= 1.0f && len < (MT9V03X_W - add_location)) {
-        float t_inv = 1.0f - t;
-        float t_inv_squared = t_inv * t_inv;
-        float t_squared = t * t;
-
-        x = t_inv_squared * location1[0] + 2 * t_inv * t * location2[0] + t_squared * location3[0];
-        y = t_inv_squared * location1[1] + 2 * t_inv * t * location2[1] + t_squared * location3[1];
-
-        float dx = x - prev_x;
-        float dy = y - prev_y;
-        current_dist = SquareRootFloat(dx * dx + dy * dy);
-
-        if (current_dist >= dist) {
-            if (x < 0 || x >= MT9V03X_W || y < 0 || y >= MT9V03X_H) break;
-
-            pts[add_location + len][0] = (uint8)x;
-            pts[add_location + len][1] = (uint8)y;
-            len++;
-
-            prev_x = x;
-            prev_y = y;
-            current_dist = 0;
-        }
-
-        t += step;
-    }
-
-    if (len < (MT9V03X_W - add_location) &&
-        !(location3[0] < 0 || location3[0] >= MT9V03X_W || location3[1] < 0 || location3[1] >= MT9V03X_H)) {
-        pts[add_location + len][0] = location3[0];
-        pts[add_location + len][1] = location3[1];
-        len++;
-    }
-
-    return len;
-}
-
+/**
+ * @brief 对图像某点进行3x3高斯模糊
+ * @param x 列坐标
+ * @param y 行坐标
+ */
 void blur(uint8 x,uint8 y)
 {
     if(x > 1 && x < 187)
@@ -879,3 +632,194 @@ void blur(uint8 x,uint8 y)
     }
 }
 
+/**
+ * @brief 一维Otsu阈值法
+ * @param data 输入数据
+ * @param len 数据长度
+ * @retval 阈值
+ */
+static uint8 Otsu_Threshold_1D(uint8* data, uint16_t len)
+{
+    if (data == NULL || len == 0) {
+        return 0;
+    }
+
+    #define GrayScale 256
+    uint32 HistGram[GrayScale] = {0};
+    for (uint16_t i = 0; i < len; i++) {
+        HistGram[data[i]]++;
+    }
+
+    uint8 MinValue = 0, MaxValue = 255;
+    while (MinValue < 255 && HistGram[MinValue] == 0) MinValue++;
+    while (MaxValue > MinValue && HistGram[MaxValue] == 0) MaxValue--;
+
+    if (MaxValue == MinValue) {
+        return MaxValue;
+    }
+    if (MinValue + 1 >= MaxValue) {
+        return MinValue;
+    }
+
+    uint32 Amount = 0;
+    for (uint16_t i = MinValue; i <= MaxValue; i++) {
+        Amount += HistGram[i];
+    }
+    if (Amount == 0) {
+        return 0;
+    }
+
+    uint32 PixelIntegral = 0;
+    for (uint16_t i = MinValue; i <= MaxValue; i++) {
+        PixelIntegral += HistGram[i] * i;
+    }
+
+    double SigmaB = -1;
+    uint8 Threshold = 0;
+    uint32 PixelBack = 0;
+    uint32 PixelIntegralBack = 0;
+
+    for (uint16_t i = MinValue; i < MaxValue; i++) {
+        PixelBack += HistGram[i];
+        if (PixelBack == 0) continue;
+
+        uint32 PixelFore = Amount - PixelBack;
+        if (PixelFore == 0) break;
+
+        PixelIntegralBack += HistGram[i] * i;
+        uint32 PixelIntegralFore = PixelIntegral - PixelIntegralBack;
+
+        double OmegaBack = (double)PixelBack / Amount;
+        double OmegaFore = (double)PixelFore / Amount;
+        double MicroBack = (double)PixelIntegralBack / PixelBack;
+        double MicroFore = (double)PixelIntegralFore / PixelFore;
+        double Sigma = OmegaBack * OmegaFore * (MicroBack - MicroFore) * (MicroBack - MicroFore);
+
+        if (Sigma > SigmaB) {
+            SigmaB = Sigma;
+            Threshold = (uint8)i;
+        }
+    }
+
+    return Threshold;
+}
+
+/**
+ * @brief 沿行方向Canny边缘检测，寻找边缘点
+ * @param row 行号
+ * @param start_x 起始列
+ * @param direction 方向，1为向右，0为向左
+ * @retval 找到的边缘点x坐标，未找到返回0
+ */
+uint8 find_edge_canny_row(uint8 row, uint8 start_x, uint8 direction)
+{
+    if (row < 1 || row >= MT9V03X_H - 1 || start_x >= MT9V03X_W)
+    {
+        return 0;
+    }
+
+    uint8 grad_mag[MT9V03X_W] = {0};
+    for (uint16_t x = 1; x < MT9V03X_W - 1; x++)
+    {
+        int32_t gx = (Image[row - 1][x + 1] + 2 * Image[row][x + 1] + Image[row + 1][x + 1]) -
+                     (Image[row - 1][x - 1] + 2 * Image[row][x - 1] + Image[row + 1][x - 1]);
+
+        int32_t gy = (Image[row + 1][x - 1] + 2 * Image[row + 1][x] + Image[row + 1][x + 1]) -
+                     (Image[row - 1][x - 1] + 2 * Image[row - 1][x] + Image[row - 1][x + 1]);
+
+        uint32_t magnitude = abs(gx) + abs(gy);
+        grad_mag[x] = (uint8)clip(magnitude, 0, 255);
+    }
+
+    uint8 TH = Otsu_Threshold_1D(grad_mag, MT9V03X_W);
+
+    if (direction == 1)
+    {
+        uint16_t start_pos = (start_x > 1) ? start_x : 1;
+        for (uint16_t x = start_pos; x < MT9V03X_W - 1; x++)
+        {
+            if (grad_mag[x] > TH &&
+                grad_mag[x] > grad_mag[x - 1])
+            {
+                return (uint8)x;
+            }
+        }
+    }
+    else
+    { 
+        int16_t start_pos = (start_x < MT9V03X_W - 2) ? start_x : (MT9V03X_W - 2);
+        for (int16_t x = start_pos; x >= 1; x--)
+        {
+            if (grad_mag[x] > TH &&
+                grad_mag[x] > grad_mag[x + 1])
+            {
+                return (uint8)x;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief 沿列方向Canny边缘检测，寻找边缘点
+ * @param col 列号
+ * @param start_y 起始行
+ * @param direction 方向，0为向下，1为向上
+ * @retval 找到的边缘点y坐标，未找到返回0
+ */
+uint8 find_edge_canny_col(uint8 col, uint8 start_y, uint8 direction)
+{
+    if (col < 1 || col >= MT9V03X_W - 1 || start_y >= MT9V03X_H)
+    {
+        return 0;
+    }
+
+    uint8 grad_mag[MT9V03X_H] = {0};
+    
+    for (uint16_t y = 1; y < MT9V03X_H - 2; y++)
+    {
+        int32_t gx = (Image[y - 1][col + 1] + 2 * Image[y][col + 1] + Image[y + 1][col + 1]) -
+                     (Image[y - 1][col - 1] + 2 * Image[y][col - 1] + Image[y + 1][col - 1]);
+
+        int32_t gy = (Image[y + 1][col - 1] + 2 * Image[y + 1][col] + Image[y + 1][col + 1]) -
+                     (Image[y - 1][col - 1] + 2 * Image[y - 1][col] + Image[y - 1][col + 1]);
+
+        uint32_t magnitude = abs(gx) + abs(gy);
+        grad_mag[y] = (uint8)clip(magnitude, 0, 255);
+    }
+
+    uint8 TH = Otsu_Threshold_1D(grad_mag, MT9V03X_H) / 2;
+
+    if (direction == 0)
+    {
+        uint16_t start_pos = (start_y > 1) ? start_y : 1;
+        start_pos = (start_pos < MT9V03X_H - 2) ? start_pos : (MT9V03X_H - 2);
+        
+        for (uint16_t y = start_pos; y < MT9V03X_H - 1; y++)
+        {
+            if (grad_mag[y] > TH &&
+                grad_mag[y] > grad_mag[y + 1])
+            {
+                return (uint8)y;
+            }
+        }
+    }
+    else
+    { 
+
+        int16_t start_pos = (start_y < MT9V03X_H - 2) ? start_y : (MT9V03X_H - 2);
+        start_pos = (start_pos > 1) ? start_pos : 1;
+        
+        for (int16_t y = start_pos; y >= 1; y--)
+        {
+            if (grad_mag[y] > TH &&
+                grad_mag[y] > grad_mag[y - 1])
+            {
+                return (uint8)y;
+            }
+        }
+    }
+
+    return 0;
+}

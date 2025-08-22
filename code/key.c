@@ -1,7 +1,6 @@
 #include "key.h"
 
 volatile uint8 key_flag = 0;
-bool Last_IR_Flag = 1;
 volatile bool nec_stop_flag = false;
 
 void my_key_init(void)
@@ -30,24 +29,7 @@ void key_scan(void)
     }
 }
 
-IFX_INTERRUPT(cc60_pit_ch0_isr, 0, CCU6_0_CH0_ISR_PRIORITY)
-{
-    interrupt_global_enable(0);
-    pit_clear_flag(CCU60_CH0);
-    key_scanner();
-    key_scan();
-    
-    bool flag = IR_Read();
-    if(!flag && !Last_IR_Flag)
-    {
-        pit_disable(CCU60_CH1);
-        pwm_set_duty(ATOM0_CH4_P02_4, 0);
-        pwm_set_duty(ATOM0_CH6_P02_6, 0);
-        pwm_set_duty(ATOM2_CH3_P11_6, 0);
-        nec_stop_flag = true;
-    }
-    Last_IR_Flag = flag;
-}
+
 
 
 

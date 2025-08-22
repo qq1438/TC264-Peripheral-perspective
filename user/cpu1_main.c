@@ -53,17 +53,16 @@ void core1_main(void)
     disable_Watchdog();                     // 关闭看门狗
     interrupt_global_enable(0);             // 打开全局中断
     // 此处编写用户代码 例如外设初始化代码等
-    Device_Init();
+    ips200_init(IPS200_TYPE_PARALLEL8);
+    mt9v03x_init();
+    my_key_init();
     // 此处编写用户代码 例如外设初始化代码等
     cpu_wait_event_ready();                 // 等待所有核心初始化完毕
     while (TRUE)
     {
 //         此处编写需要循环执行的代码
-        Pts_Deal();
-        ips200_show_float(0,0,speed_ladrc.w0,3,3);
-        ips200_show_float(0,30,speed_ladrc.wc,3,3);
-        ips200_show_float(0,60,speed_ladrc.b,3,3);
-        ips200_show_float(0,90,speed_ladrc.limit,3,3);
+        // 逆透视标定
+        Get_inverse_matrix();
         // 此处编写需要循环执行的代码
     }
 }

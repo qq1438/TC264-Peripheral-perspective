@@ -58,45 +58,13 @@ int core0_main(void)
     clock_init();                   // 获取时钟频率<务必保留>
     debug_init();
     // 此处编写用户代码 例如外设初始化代码等
-    uint32 now_frame = 0;
-    NEC_Init();
     // 此处编写用户代码 例如外设初始化代码等
     cpu_wait_event_ready();         // 等待所有核心初始化完毕
 	while (TRUE)
 	{
-        if(is_compress)
-        {
-            uint8 ret = store_compressed_image();
-            if(ret != STORAGE_OK || ret == 2)
-            {
-                ips200_show_uint(0,0,ret,2);
-                speed = 0;
-                while(1)zebra = 1;
-            }
-            is_compress = false;
-        }
-        if(nec_stop_flag)
-        {
-            pit_disable(CCU60_CH1);
-            while(1){
-                pwm_set_duty(ATOM0_CH4_P02_4,0);
-                pwm_set_duty(ATOM0_CH6_P02_6,0);
-                pwm_set_duty(ATOM2_CH3_P11_6,0);
-                pwm_set_duty(ATOM0_CH0_P21_2,0);
-                pwm_set_duty(ATOM0_CH1_P21_3,0);
-            }
-        }
 	}
 }
 
-uint32 seekfree_assistant_transfer (const uint8 *buff, uint32 length)
-{
-    uint32 len = 0;
-
-    len = wireless_uart_send_buffer(buff, length);
-
-    return len;
-}
 
 #pragma section all restore
 // **************************** 代码区域 ****************************

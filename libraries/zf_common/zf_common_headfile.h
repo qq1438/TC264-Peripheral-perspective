@@ -113,29 +113,11 @@
 //====================================================应用组件层====================================================
 
 //=====================================================用户层======================================================
-#include "All_Init.h"
 #include "clip.h"
 #include "image_processing.h"
-#include "PTS_Deal.h"
-#include "PID.h"
-#include "ladrc.h"
-#include "PIT_Demo.h"
-#include "Filter.h"
-#include "Ring.h"
-#include "cross.h"
 #include "point_judge.h"
-#include "Show_data.h"
 #include "key.h"
 #include "perspective.h"
-#include "pico_gy.h"
-#include "pico_link_ii.h"
-#include "image_storage.h"
-#include "speed_decision.h"
-#include "exposure_adjust.h"
-#include "buzzer.h"
-#include "Zebra.h"
-#include "infrared_nec.h"
-#include "parameter_flash.h"
 //=====================================================用户层======================================================
 #endif
 

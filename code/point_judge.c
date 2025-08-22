@@ -1,22 +1,33 @@
 #include "point_judge.h"
 
-void update_corner_mapping(BoundaryData *data,uint8 ID[3]) 
+/**
+ * @brief 更新角点映射关系，将原始点集中的三个特征点映射到当前点集，并找到其在当前点集中的最近点索引。
+ * @param data 边界数据结构体指针
+ * @param ID   原始点集中特征点的索引数组，长度为3
+ *
+ * 变量说明：
+ *   - data->map[i].original[0/1]：第i个特征点的原始坐标
+ *   - data->map[i].original_index：第i个特征点在原始点集中的索引
+ *   - data->map[i].transformed：第i个特征点经过变换后的坐标
+ *   - data->map[i].now_index：第i个特征点在当前点集中的最近点索引
+ */
+void update_corner_mapping(BoundaryData *data, uint8 ID[3]) 
 {
-    for(uint8 i=0; i<3; i++) {
+    for(uint8 i = 0; i < 3; i++) {
         data->map[i].original[0] = data->original_pts[ID[i]][0];
         data->map[i].original[1] = data->original_pts[ID[i]][1];
         data->map[i].original_index = ID[i];
         TransformSinglePoint(data->original_pts[ID[i]], data->map[i].transformed);
         if(data->map[i].transformed[0] == 0 && data->map[i].transformed[1] == 0) continue;
         
-        uint8 min_dist = 255;
-        for(uint8 j=0; j<data->now_step; j++){
+        uint8 min_dist = 255; // 最小曼哈顿距离
+        for(uint8 j = 0; j < data->now_step; j++) {
             // 快速曼哈顿距离计算
             uint8 dx = abs(data->now_pts[j][0] - data->map[i].transformed[0]);
             uint8 dy = abs(data->now_pts[j][1] - data->map[i].transformed[1]);
             uint8 dist = dx + dy;
             
-            if(dist < min_dist){
+            if(dist < min_dist) {
                 min_dist = dist;
                 data->map[i].now_index = j;
             }
@@ -25,11 +36,22 @@ void update_corner_mapping(BoundaryData *data,uint8 ID[3])
     }
 }
 
-void filter_point(BoundaryData *data,bool side)
+/**
+ * @brief 从原始点集中筛选出三个特征点（如角点），并更新映射关系。
+ * @param data 边界数据结构体指针
+ * @param side 侧别标志，1为左侧，0为右侧
+ *
+ * 变量说明：
+ *   - ID[3]：存储筛选出的三个特征点的索引
+ *   - max_values[3]：分别对应三个特征点的最大值
+ *   - cur_x, cur_y：当前点的x、y坐标（根据side调整）
+ *   - XY：cur_x与cur_y的乘积，用于综合特征
+ */
+void filter_point(BoundaryData *data, bool side)
 {
     uint8 ID[3] = {0};
     uint16 max_values[3] = {0};
-    for(uint8 i=0;i<data->now_step_original;i++)
+    for(uint8 i = 0; i < data->now_step_original; i++)
     {
         uint8 cur_x = side ? data->original_pts[i][0] : MT9V03X_W - data->original_pts[i][0];
         uint8 cur_y = MT9V03X_H - data->original_pts[i][1];
@@ -39,9 +61,9 @@ void filter_point(BoundaryData *data,bool side)
             uint8 *id;
             uint16 compare_value;
         } checks[3] = {
-            {&max_values[0], &ID[0], cur_x},          
-            {&max_values[1], &ID[1], cur_y},      
-            {&max_values[2], &ID[2], XY}             
+            {&max_values[0], &ID[0], cur_x},          // 横向最大
+            {&max_values[1], &ID[1], cur_y},          // 纵向最大
+            {&max_values[2], &ID[2], XY}              // 综合最大
         };
 
         for(uint8 c = 0; c < 3; c++) {
@@ -55,10 +77,23 @@ void filter_point(BoundaryData *data,bool side)
             }
         }
     }
-    update_corner_mapping(data,ID);
+    update_corner_mapping(data, ID);
 }
 
-void count_angle(BoundaryData *data,uint8 window)
+/**
+ * @brief 计算特征点的角度变化，并判断是否为拐点。
+ * @param data   边界数据结构体指针
+ * @param window 局部窗口大小
+ *
+ * 变量说明：
+ *   - angle_max：最大角度变化值
+ *   - id：最大角度变化对应的特征点索引
+ *   - number：特征点邻域内高于阈值的像素点数量
+ *   - data->Lp_id：拐点在当前点集中的索引
+ *   - data->angle：最大角度（度）
+ *   - data->Lp_state：拐点状态标志
+ */
+void count_angle(BoundaryData *data, uint8 window)
 {
     float angle_max = 0;
     uint8 id = 0;
@@ -78,16 +113,17 @@ void count_angle(BoundaryData *data,uint8 window)
     }
     uint8 number = 0;
 
+    // 判断拐点邻域像素特征
     if(data->map[id].now_index < data->now_step - window &&
         data->map[id].original[1] > 1 && data->map[id].original[1] < MT9V03X_H - 1 &&
         data->map[id].original[0] > 1 && data->map[id].original[0] < MT9V03X_W - 1)
     {
-        uint8 threshold = adaptiveThreshold(data->map[id].original[1],data->map[id].original[0],3,3);
+        uint8 threshold = adaptiveThreshold(data->map[id].original[1], data->map[id].original[0], 3, 3);
         for(int8 dy = -1; dy <= 1; dy++)
         {
-            for(int8 dx=-1; dx<=1; dx++)
+            for(int8 dx = -1; dx <= 1; dx++)
             {
-                if(Image[data->map[id].original[1]+dy][data->map[id].original[0]+dx] > threshold)
+                if(Image[data->map[id].original[1] + dy][data->map[id].original[0] + dx] > threshold)
                 {
                     number++;
                 }
@@ -96,38 +132,49 @@ void count_angle(BoundaryData *data,uint8 window)
     }
     data->Lp_id = data->map[id].now_index;
     angle_max = angle_max / PI * 180;
-    if(angle_max > ANGLE_LOW && angle_max < ANGLE_HIGH && data->map[id].now_index < Step_Max - 2 * WINDOW_SIZE && number > 5)
+    data->angle = angle_max;
+    if(angle_max > ANGLE_LOW && angle_max < ANGLE_HIGH && number > window)
     {
         data->Lp_state = 1;
     }
 }
 
+/**
+ * @brief 综合调用各处理函数，判断左右边界的拐点、直线段和丢线状态。
+ * @param left  左边界数据结构体指针
+ * @param right 右边界数据结构体指针
+ *
+ * 变量说明：
+ *   - is_straight：是否为直线段
+ *   - Lp_state：拐点状态
+ *   - Lp_id：拐点索引
+ *   - is_lost：丢线标志
+ *   - L_length, R_length：左右边界的长度
+ */
 void find_corner(BoundaryData *left, BoundaryData *right)
 {
     left->is_straight = right->is_straight = 0;
     left->Lp_state = right->Lp_state = 0;
     left->Lp_id = right->Lp_id = 0;
     left->is_lost = right->is_lost = 0;
-    filter_point(left,1);
-    filter_point(right,0);
-    count_angle(left,WINDOW_SIZE);
-    count_angle(right,WINDOW_SIZE);
-    count_angle(left,WINDOW_SIZE / 2);
-    count_angle(right,WINDOW_SIZE / 2);
+    filter_point(left, 1);
+    filter_point(right, 0);
+    count_angle(left, WINDOW_SIZE);
+    count_angle(right, WINDOW_SIZE);
+    count_angle(left, WINDOW_SIZE / 2);
+    count_angle(right, WINDOW_SIZE / 2);
     if(left->now_step > Step_Max / 2)
     {
-        uint8 high = abs(left->now_pts[left->now_step - 1][1] - left->now_pts[0][1]);
-        float curvature = compute_curvature(left->now_pts[0],left->now_pts[(left->now_step / 2)],left->now_pts[(left->now_step - 1)]);
-        if(curvature * 1000 < CURVATURE_THRESHOLD && !left->Lp_state)
+        float curvature = compute_curvature(left->now_pts[0], left->now_pts[(left->now_step / 2)], left->now_pts[(left->now_step - 1)]);
+        if(curvature * 1000 < CURVATURE_THRESHOLD && !left->Lp_state && left->angle < ANGLE_THRESHOLD)
         {
             left->is_straight = 1;
         }
     }
     if(right->now_step > Step_Max / 2)
     {
-        uint8 high = abs(right->now_pts[right->now_step - 1][1] - right->now_pts[0][1]);
-        float curvature = compute_curvature(right->now_pts[0],right->now_pts[(right->now_step / 2)],right->now_pts[(right->now_step - 1)]);
-        if(curvature * 1000 < CURVATURE_THRESHOLD && !right->Lp_state)
+        float curvature = compute_curvature(right->now_pts[0], right->now_pts[(right->now_step / 2)], right->now_pts[(right->now_step - 1)]);
+        if(curvature * 1000 < CURVATURE_THRESHOLD && !right->Lp_state && right->angle < ANGLE_THRESHOLD)
         {
             right->is_straight = 1;
         }
@@ -145,36 +192,47 @@ void find_corner(BoundaryData *left, BoundaryData *right)
     {
         right->is_lost = 1;
     }
-    
 }
 
-uint8 seek_corner(uint8 pts_in[][2], uint8 step, uint8 reverse_order) 
+/**
+ * @brief 在点集内根据不同策略寻找角点（特征点）索引。
+ * @param pts_in        输入点集，二维数组，每行为一个点的(x, y)
+ * @param step          点集长度
+ * @param reverse_order 策略选择（0~5）
+ * @return              选中的角点索引
+ *
+ * 变量说明：
+ *   - best_index：最佳角点索引
+ *   - MAX_value：最大特征值
+ *   - min_y：点集中的最小y值
+ *   - now_value：当前点的特征值
+ */
+uint8 seek_corner(uint8 pts_in[][2], uint8 step, uint8 reverse_order)
 {
     if(step == 0) return 0;
-    
-    uint8 best_index = step-1;
+
+    uint8 best_index = step - 1;
     int MAX_value = 0;
     uint8 min_y = pts_in[step - 1][1];
-    uint8 min_x = pts_in[0][0];
     for(uint8 i = 0; i < step; i++) {
-        uint8 cur_x = pts_in[i][0];  
+        uint8 cur_x = pts_in[i][0];
         uint8 cur_y = pts_in[i][1];
         int now_value = 0;
-        
+
         switch(reverse_order) {
             case 0: now_value = cur_x; break;
             case 1: now_value = (MT9V03X_W - cur_x); break;
-            case 2: now_value = cur_y * (MT9V03X_W - cur_x); break;
-            case 3: now_value = cur_y * cur_x; break;
-            case 4: now_value = abs((cur_y - min_y) * (cur_x)); break;  
+            case 2: now_value = cur_y * (MT9V03X_W - cur_x) * cur_y; break;
+            case 3: now_value = cur_y * cur_x * cur_y; break;
+            case 4: now_value = abs((cur_y - min_y) * (cur_x)); break;
             case 5: now_value = abs((cur_y - min_y) * (MT9V03X_W - cur_x)); break;
         }
-        
+
         if(now_value > MAX_value) {
             MAX_value = now_value;
             best_index = i;
         }
     }
-    
+
     return best_index;
 }

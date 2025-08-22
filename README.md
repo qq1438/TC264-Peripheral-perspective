@@ -1,51 +1,62 @@
-# Front_Car_V2.6.1 - æ™ºèƒ½è½¦ï¼ˆå‰è½¦ï¼‰åµŒå…¥å¼ä»£ç 
+# ÖÇÄÜ³µÉãÏñÍ·ÄæÍ¸ÊÓ±ä»» (IPM) ÏîÄ¿
 
-æœ¬é¡¹ç›®æ˜¯åŸºäºŽ Infineon TC26B å¾®æŽ§åˆ¶å™¨çš„æ™ºèƒ½è½¦ï¼ˆå‰è½¦ï¼‰åµŒå…¥å¼è½¯ä»¶ä»£ç ã€‚
+## 1. ÏîÄ¿¸ÅÊö
 
-## é¡¹ç›®æ¦‚è¿°
+±¾ÏîÄ¿ÊÇÒ»¸öÎªÖÇÄÜ³µÉè¼ÆµÄÇ¶ÈëÊ½CÓïÑÔÏîÄ¿£¬ÆäºËÐÄ¹¦ÄÜÊÇÊµÏÖÉãÏñÍ·µÄÄæÍ¸ÊÓ±ä»»£¨Inverse Perspective Mapping, IPM£©¡£¸Ã¹¦ÄÜÄÜ¹»½«ÉãÏñÍ·ÔÚÇ°µ²·ç²£Á§´¦²É¼¯µ½µÄ¡¢´øÓÐÍ¸ÊÓ»û±äµÄÈüµÀÍ¼Ïñ£¬ÊµÊ±×ª»»ÎªÎÞ»û±äµÄ¸©ÊÓÍ¼£¨Äñî«Í¼£©¡£
 
-[è¯·åœ¨æ­¤å¤„å¡«å†™æ›´è¯¦ç»†çš„é¡¹ç›®æ¦‚è¿°ï¼Œä¾‹å¦‚é¡¹ç›®çš„ä¸»è¦åŠŸèƒ½ã€å®žçŽ°çš„ç®—æ³•ç­‰]
+ÕâÖÖ¸©ÊÓÍ¼¶ÔÓÚºóÐøµÄÂ·¾¶¹æ»®¡¢³µµÀÏßÊ¶±ð¡¢ÕÏ°­Îï¼ì²âµÈ¸ß¼¶×Ô¶¯¼ÝÊ»Ëã·¨ÖÁ¹ØÖØÒª£¬ÊÇÖÇÄÜ³µÊÓ¾õ´¦ÀíµÄ¡°µÚÒ»²½¡±¡£
 
-## ç¡¬ä»¶å¹³å°
+±¾ÏîÄ¿´úÂë»ùÓÚÓ¢·ÉÁè£¨Infineon£©TC26BÏµÁÐÎ¢¿ØÖÆÆ÷£¬²¢Ê¹ÓÃÁËÌØ¶¨ÓÚ¸ÃÆ½Ì¨µÄÓ²¼þÇý¶¯¡£
 
-*   ä¸»æŽ§èŠ¯ç‰‡ï¼šInfineon TC26B
+## 2. ºËÐÄ¹¦ÄÜ
 
-## è½¯ä»¶çŽ¯å¢ƒ
+±¾ÏîÄ¿µÄÖ÷ÒªÊµÏÖ´úÂë¾ùÔÚ `code/perspective.c` ÎÄ¼þÖÐ¡£
 
-æœ¬é¡¹ç›®å¯èƒ½éœ€è¦åœ¨ç‰¹å®šçš„é›†æˆå¼€å‘çŽ¯å¢ƒ (IDE) ä¸­è¿›è¡Œå¼€å‘å’Œç¼–è¯‘ï¼Œä¾‹å¦‚åŸºäºŽ Eclipse çš„ AURIX Development Studio æˆ– DAVEã€‚
+- **ÄæÍ¸ÊÓ¾ØÕó¼ÆËã**:
+  - ÊµÏÖÁË»ùÓÚËÄµã¶ÔÓ¦¹ØÏµµÄµ¥Ó¦ÐÔ¾ØÕó£¨Homography Matrix£©Çó½âËã·¨¡£
+  - Í¨¹ýÑ¡È¡Í¸ÊÓÍ¼ÏñÖÐµÄËÄ¸öµã£¨ÈçÈüµÀ±ßÏßµÄËÄ¸ö½Çµã£©ºÍËüÃÇÔÚ¸©ÊÓÍ¼ÖÐ¶ÔÓ¦µÄÄ¿±êµã£¬¿ÉÒÔ¾«È·¼ÆËã³ö3x3µÄÄæÍ¸ÊÓ±ä»»¾ØÕó¡£
+  - Ëã·¨°üº¬ÁËµã¼¯¹éÒ»»¯£¨DLTËã·¨£©ºÍ¸ßË¹ÏûÔª·¨½âÏßÐÔ·½³Ì×é£¬ÒÔÌá¸ß¼ÆËãµÄÎÈ¶¨ÐÔºÍ¾«¶È¡£
 
-*   [è¯·åœ¨æ­¤å¤„å¡«å†™æ‰€éœ€çš„ IDE åç§°åŠç‰ˆæœ¬]
-*   [è¯·åœ¨æ­¤å¤„å¡«å†™æ‰€éœ€çš„ç¼–è¯‘å™¨åç§°åŠç‰ˆæœ¬ï¼Œä¾‹å¦‚ TASKING Tricore VX]
+- **Í¼Ïñ±ä»»**:
+  - `Image_Transformed` º¯ÊýÀûÓÃ¼ÆËã³öµÄÄæÍ¸ÊÓ¾ØÕó£¬Í¨¹ý·´Ïò²åÖµµÄ·½Ê½£¬Öðµã½«Ô­Ê¼Í¼Ïñ×ª»»Îª¸©ÊÓÍ¼Ïñ¡£
+  - ÄÜ¹»´¦ÀíÊµÊ±ÉãÏñÍ·²É¼¯µÄÃ¿Ò»Ö¡Í¼Ïñ¡£
 
-## ä»£ç ç»“æž„
+- **×Ô¶¯»¯±ê¶¨Á÷³Ì**:
+  - Ìá¹©ÁËÒ»Ì×Í¨¹ýÎïÀí°´¼ü´¥·¢µÄ×Ô¶¯»¯±ê¶¨Á÷³Ì (`Get_inverse_matrix` º¯Êý)¡£
+  - **°´¼ü1**: ´¥·¢ËÄµã×Ô¶¯¼ì²â (`Get_Four_Points`)¡£³ÌÐò»á×Ô¶¯´ÓÍ¼ÏñÖÐÑ°ÕÒÈüµÀ±ßÏßµÄÔ¶¡¢½üËÄ¸ö½Çµã£¬²¢½øÐÐ³õ²½µÄÄæÍ¸ÊÓ±ä»»£¬½«½á¹ûÏÔÊ¾ÔÚÆÁÄ»ÉÏ¡£
+  - **°´¼ü2**: ¶Ô±ä»»½á¹û½øÐÐÎ¢µ÷²¢±£´æ¡£¸Ã¹¦ÄÜ»á×Ô¶¯·ÖÎö±ä»»ºóÍ¼ÏñµÄÓÐÐ§ÇøÓò£¬ÖÇÄÜµ÷Õû¸©ÊÓÍ¼µÄ¡°ÊÓ¾à¡±£¨`up_distance`£©£¬È»ºó½«×îÖÕ¼ÆËã³öµÄÄæÍ¸ÊÓ¾ØÕóÓÀ¾ÃÐ´Èëµ½µ¥Æ¬»úµÄFlashÖÐ¡£
 
-*   `code/`: åº”ç”¨å±‚æºä»£ç  (.c) å’Œå¤´æ–‡ä»¶ (.h)ã€‚
-*   `libraries/`: åŒ…å«å„ç§åº“æ–‡ä»¶ï¼Œå¦‚ Infineon æä¾›çš„åº•å±‚é©±åŠ¨ (iLLD)ã€é€šç”¨åº“ã€ç»„ä»¶åº“ã€è®¾å¤‡é©±åŠ¨å’ŒæŠ½è±¡é©±åŠ¨ã€‚
-    *   `infineon_libraries/`: Infineon iLLD å’Œ Service Layer ä»£ç ã€‚
-    *   `zf_common/`: é€šç”¨é¡¹ç›®å·¥å…·ã€å®å®šä¹‰ã€ç±»åž‹å®šä¹‰ç­‰ï¼ŒåŒ…å«æ ¸å¿ƒå¤´æ–‡ä»¶ `zf_common_headfile.h`ã€‚
-    *   `zf_components/`: å¯å¤ç”¨è½¯ä»¶ç»„ä»¶æˆ–ä¸­é—´ä»¶ã€‚
-    *   `zf_device/`: ç‰¹å®šå¤–è®¾è®¾å¤‡é©±åŠ¨ã€‚
-    *   `zf_driver/`: ç¡¬ä»¶é©±åŠ¨æŠ½è±¡å±‚ã€‚
-*   `user/`: ç”¨æˆ·é¡¶å±‚åº”ç”¨é€»è¾‘å’Œä¸»ç¨‹åºã€‚
-*   `Debug/` å’Œ `Release/`: ç¼–è¯‘ç”Ÿæˆæ–‡ä»¶ç›®å½•ã€‚
-*   `.settings/`: IDE é¡¹ç›®é…ç½®ã€‚
+- **±ê¶¨²ÎÊý³Ö¾Ã»¯**:
+  - `Write_Matrix` ºÍ `Read_Matrix` º¯ÊýÊµÏÖÁË½«±ê¶¨ºÃµÄ3x3ÄæÍ¸ÊÓ¾ØÕóÐ´ÈëFlashºÍ´ÓFlash¶Á³öµÄ¹¦ÄÜ¡£
+  - ÕâÒâÎ¶×Å±ê¶¨¹¤×÷Ö»Ðè½øÐÐÒ»´Î£¬Ö®ºóÃ¿´ÎÉè±¸ÖØÆô¶¼ÄÜ×Ô¶¯¼ÓÔØÖ®Ç°µÄ±ê¶¨²ÎÊý£¬ÎÞÐèÖØ¸´±ê¶¨¡£
 
-## æž„å»ºè¯´æ˜Ž
+## 3. Ó²¼þÒÀÀµ
 
-[è¯·åœ¨æ­¤å¤„å¡«å†™é¡¹ç›®çš„æž„å»ºæ­¥éª¤ï¼Œä¾‹å¦‚å¦‚ä½•å¯¼å…¥åˆ° IDEã€ç¼–è¯‘æµç¨‹ç­‰]
+¸ù¾Ý´úÂëÖÐµÄº¯Êýµ÷ÓÃºÍ±äÁ¿ÀàÐÍÍÆ¶Ï£¬±¾ÏîÄ¿ÒÀÀµÒÔÏÂÓ²¼þ£º
 
-## ä½¿ç”¨è¯´æ˜Ž
+- **Ö÷¿ØMCU**: Infineon TC26B
+- **ÉãÏñÍ·**: MT9V03X »Ò¶ÈÍ¼Ïñ´«¸ÐÆ÷
+- **ÏÔÊ¾ÆÁ**: IPS200 LCD ÏÔÊ¾ÆÁ (ÓÃÓÚÏÔÊ¾Ô­Ê¼Í¼ÏñºÍ±ä»»ºóµÄ¸©ÊÓÍ¼)
+- **ÎïÀí°´¼ü**: ÖÁÉÙÁ½¸ö°´¼ü£¬ÓÃÓÚ´¥·¢±ê¶¨Á÷³Ì¡£
+- **·ÇÒ×Ê§ÐÔ´æ´¢**: MCUÆ¬ÉÏFlash£¬ÓÃÓÚ´æ´¢±ê¶¨¾ØÕó¡£
 
-[è¯·åœ¨æ­¤å¤„å¡«å†™å¦‚ä½•è¿è¡Œä»£ç ã€è°ƒè¯•ã€ä»¥åŠä»»ä½•ç‰¹å®šçš„ä½¿ç”¨æ³¨æ„äº‹é¡¹]
+## 4. ÈçºÎÊ¹ÓÃ£¨Ïà»ú±ê¶¨Á÷³Ì£©
 
-## è´¡çŒ®æŒ‡å—
+Òª»ñµÃ×î¼ÑµÄÄæÍ¸ÊÓÐ§¹û£¬Çë×ñÑ­ÒÔÏÂ±ê¶¨²½Öè£º
 
-[å¦‚æžœæ‚¨å¸Œæœ›å…¶ä»–äººè´¡çŒ®ä»£ç ï¼Œè¯·åœ¨æ­¤å¤„æ·»åŠ è´¡çŒ®æŒ‡å—]
+1.  **×¼±¸»·¾³**: ½«ÖÇÄÜ³µ·ÅÖÃÔÚ¹âÏßÁ¼ºÃ¡¢¾ßÓÐÇåÎúÖ±³µµÀ±ß½çÏßµÄ±ê×¼ÈüµÀÉÏ¡£È·±£ÉãÏñÍ·ÊÓ½ÇÕý¶ÔÈüµÀ¡£
 
-## è®¸å¯è¯
+2.  **´¥·¢³õÊ¼±ê¶¨ (°´¼ü1)**:
+    - °´ÏÂ`°´¼ü1`¡£
+    - ³ÌÐò½«×Ô¶¯²É¼¯Ò»Ö¡Í¼Ïñ£¬²¢ÔËÐÐ `Get_Four_Points` º¯ÊýÑ°ÕÒÈüµÀ±ßÏßµÄËÄ¸ö½Çµã¡£
+    - ½Ó×Å£¬³ÌÐò»á¼ÆËã³ö³õÊ¼µÄÄæÍ¸ÊÓ¾ØÕó£¬²¢µ÷ÓÃ `Perspective_Transform` ½«Ô­Ê¼Í¼Ïñ×ª»»Îª¸©ÊÓÍ¼¡£
+    - ´ËÊ±£¬ÄúÓ¦¸Ã¿ÉÒÔÔÚÏÔÊ¾ÆÁÉÏ¿´µ½±ä»»ºóµÄ¸©ÊÓÍ¼Ð§¹û¡£
 
-[è¯·åœ¨æ­¤å¤„æ·»åŠ é¡¹ç›®çš„è®¸å¯è¯ä¿¡æ¯]
+3.  **Î¢µ÷²¢±£´æ (°´¼ü2)**:
+    - °´ÏÂ`°´¼ü2`¡£
+    - ³ÌÐò»á×Ô¶¯·ÖÎöÉÏÒ»²½Éú³ÉµÄ¸©ÊÓÍ¼£¬²¢¶Ô`up_distance`²ÎÊý½øÐÐÎ¢µ÷£¬ÒÔÓÅ»¯ÊÓÒ°¡£
+    - µ÷Õûºó£¬³ÌÐò»áÖØÐÂ¼ÆËã²¢Ó¦ÓÃÐÂµÄÄæÍ¸ÊÓ¾ØÕó¡£
+    - ×î¹Ø¼üµÄÊÇ£¬**×îÖÕµÄÄæÍ¸ÊÓ¾ØÕó½«±»µ÷ÓÃ `Write_Matrix` º¯Êý±£´æµ½FlashÖÐ**¡£
+    - Í¬Ê±£¬³ÌÐò»áµ÷ÓÃ `ImagePerspective_Init` º¯Êý£¬Ê¹ÐÂµÄ¾ØÕóÁ¢¼´ÉúÐ§¡£
 
----
-
-**æ³¨æ„ï¼š** è¿™æ˜¯ä¸€ä¸ªåˆæ­¥ç”Ÿæˆçš„ README æ–‡ä»¶ï¼Œè¯·æ ¹æ®æ‚¨çš„å®žé™…é¡¹ç›®æƒ…å†µè¿›è¡Œä¿®æ”¹å’Œå®Œå–„ã€‚
+±ê¶¨Íê³Éºó£¬ÏµÍ³Ã¿´ÎÆô¶¯¶¼»á×Ô¶¯´ÓFlash¼ÓÔØ¸Ã¾ØÕó£¬ºóÐøµÄÊÓ¾õËã·¨½«Ö±½ÓÊ¹ÓÃÕâ¸ö¾«È·µÄ¸©ÊÓÍ¼½øÐÐ´¦Àí¡£
